@@ -58,7 +58,7 @@ export function exportWavWithCueMarkers(audioBuffer, cuePoints) {
   const labels = [];
   let adtlPayloadSize = 4; // 'adtl' identifier (4 bytes)
   for (let i = 0; i < numCuePoints; i++) {
-    const labelStr = `Slice ${i + 1}`;
+    const labelStr = "";
     // Label bytes: string + null terminator
     const labelBytes = labelStr.length + 1;
     // Pad label bytes to even length
@@ -86,7 +86,8 @@ export function exportWavWithCueMarkers(audioBuffer, cuePoints) {
   // Total RIFF file size
   // RIFF header: 'RIFF' (4) + fileSize (4) + 'WAVE' (4) = 12 bytes
   // Then all chunks follow
-  const riffPayloadSize = 4 + fmtChunkSize + dataChunkSize + cueChunkSize + listChunkSize;
+  const riffPayloadSize =
+    4 + fmtChunkSize + dataChunkSize + cueChunkSize + listChunkSize;
   const totalFileSize = 8 + riffPayloadSize; // 'RIFF' + uint32 size + payload
 
   // ── Allocate buffer and create views ─────────────────────────────────
@@ -122,22 +123,22 @@ export function exportWavWithCueMarkers(audioBuffer, cuePoints) {
   }
 
   // ── RIFF header ──────────────────────────────────────────────────────
-  writeString('RIFF');
+  writeString("RIFF");
   writeUint32(riffPayloadSize); // file size minus 8
-  writeString('WAVE');
+  writeString("WAVE");
 
   // ── fmt  chunk ───────────────────────────────────────────────────────
-  writeString('fmt ');
-  writeUint32(fmtChunkDataSize);     // chunk data size = 16
-  writeUint16(1);                     // audio format: 1 = PCM
-  writeUint16(numChannels);           // number of channels
-  writeUint32(sampleRate);            // sample rate
+  writeString("fmt ");
+  writeUint32(fmtChunkDataSize); // chunk data size = 16
+  writeUint16(1); // audio format: 1 = PCM
+  writeUint16(numChannels); // number of channels
+  writeUint32(sampleRate); // sample rate
   writeUint32(sampleRate * blockAlign); // byte rate
-  writeUint16(blockAlign);            // block align
-  writeUint16(bitsPerSample);         // bits per sample
+  writeUint16(blockAlign); // block align
+  writeUint16(bitsPerSample); // bits per sample
 
   // ── data chunk ───────────────────────────────────────────────────────
-  writeString('data');
+  writeString("data");
   writeUint32(dataChunkDataSize);
 
   // Write interleaved 16-bit PCM samples
@@ -157,18 +158,18 @@ export function exportWavWithCueMarkers(audioBuffer, cuePoints) {
   }
 
   // ── cue  chunk ───────────────────────────────────────────────────────
-  writeString('cue ');
+  writeString("cue ");
   writeUint32(cueChunkDataSize);
   writeUint32(numCuePoints);
 
   for (let i = 0; i < numCuePoints; i++) {
     const samplePosition = cuePoints[i].position;
-    writeUint32(i + 1);           // dwName: unique ID starting from 1
-    writeUint32(samplePosition);  // dwPosition: play order position
-    writeString('data');          // fccChunk: 'data'
-    writeUint32(0);               // dwChunkStart
-    writeUint32(0);               // dwBlockStart
-    writeUint32(samplePosition);  // dwSampleOffset
+    writeUint32(i + 1); // dwName: unique ID starting from 1
+    writeUint32(samplePosition); // dwPosition: play order position
+    writeString("data"); // fccChunk: 'data'
+    writeUint32(0); // dwChunkStart
+    writeUint32(0); // dwBlockStart
+    writeUint32(samplePosition); // dwSampleOffset
   }
 
   // Pad cue chunk to even byte boundary
@@ -177,15 +178,15 @@ export function exportWavWithCueMarkers(audioBuffer, cuePoints) {
   }
 
   // ── LIST chunk (adtl with labl sub-chunks) ───────────────────────────
-  writeString('LIST');
+  writeString("LIST");
   writeUint32(listChunkDataSize);
-  writeString('adtl');
+  writeString("adtl");
 
   for (let i = 0; i < numCuePoints; i++) {
     const label = labels[i];
 
     // labl sub-chunk header
-    writeString('labl');
+    writeString("labl");
     writeUint32(label.lablDataSize);
 
     // Cue point ID (matches dwName in cue chunk)
@@ -209,5 +210,5 @@ export function exportWavWithCueMarkers(audioBuffer, cuePoints) {
   }
 
   // ── Return the WAV as a Blob ─────────────────────────────────────────
-  return new Blob([buffer], { type: 'audio/wav' });
+  return new Blob([buffer], { type: "audio/wav" });
 }
