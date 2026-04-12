@@ -165,6 +165,18 @@ async function loadFile(file) {
     const arrayBuffer = await file.arrayBuffer();
     audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
 
+    // Reject files that aren't 48000 Hz
+    if (audioBuffer.sampleRate !== 48000) {
+      const badRate = audioBuffer.sampleRate;
+      audioBuffer = null;
+      monoData = null;
+      showFileInfo(
+        `⚠️ Unsupported sample rate: ${badRate} Hz — only 48000 Hz is supported`,
+        true,
+      );
+      return;
+    }
+
     // Create mono mixdown for analysis and display
     monoData = mixToMono(audioBuffer);
 
