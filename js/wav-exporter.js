@@ -1,12 +1,13 @@
 /**
  * wav-exporter.js
  *
- * ES module that exports a Web Audio API AudioBuffer as a WAV file (PCM 16-bit)
- * with embedded cue markers and labels.
+ * ES module that exports a Web Audio API AudioBuffer as a WAV file
+ * (32-bit IEEE float) with embedded cue markers and labels.
  *
  * WAV layout:
  *   RIFF [filesize-8] WAVE
- *     fmt  [16] ...
+ *     fmt  [18] ...          (WAVE_FORMAT_IEEE_FLOAT with cbSize=0)
+ *     fact [4]  ...          (required for non-PCM formats)
  *     data [dataSize] ...
  *     cue  [cueChunkDataSize] ...
  *     LIST [listChunkDataSize] adtl
@@ -15,7 +16,7 @@
  */
 
 /**
- * Convert an AudioBuffer to a WAV Blob with embedded cue markers.
+ * Convert an AudioBuffer to a 32-bit IEEE float WAV Blob with embedded cue markers.
  *
  * @param {AudioBuffer} audioBuffer  - Web Audio API AudioBuffer
  * @param {Array<{position: number}>} cuePoints - Array of cue markers with sample positions
@@ -25,9 +26,10 @@ export function exportWavWithCueMarkers(audioBuffer, cuePoints) {
   const numChannels = audioBuffer.numberOfChannels;
   const sampleRate = audioBuffer.sampleRate;
   const numFrames = audioBuffer.length;
-  const bitsPerSample = 16;
-  const bytesPerSample = bitsPerSample / 8;
+  const bitsPerSample = 32;
+  const bytesPerSample = bitsPerSample / 8; // 4
   const blockAlign = numChannels * bytesPerSample;
+  const audioFormat = 3; // WAVE_FORMAT_IEEE_FLOAT
 
   // ── Gather channel data ──────────────────────────────────────────────
   const channels = [];
@@ -37,9 +39,15 @@ export function exportWavWithCueMarkers(audioBuffer, cuePoints) {
 
   // ── Compute chunk sizes ──────────────────────────────────────────────
 
-  // fmt chunk: always 16 bytes of data for PCM
-  const fmtChunkDataSize = 16;
-  const fmtChunkSize = 8 + fmtChunkDataSize; // chunk header (id + size) + data
+  // fmt chunk: 18 bytes of data for IEEE float (16 standard + 2 for cbSize)
+  const fmtChunkDataSize = 18;
+  // Pad fmt chunk to even boundary (18 is even, so no pad needed)
+  const fmtPadByte = fmtChunkDataSize % 2;
+  const fmtChunkSize = 8 + fmtChunkDataSize + fmtPadByte;
+
+  // fact chunk: required for non-PCM formats, 4 bytes of data
+  const factChunkDataSize = 4;
+  const factChunkSize = 8 + factChunkDataSize;
 
   // data chunk
   const dataChunkDataSize = numFrames * numChannels * bytesPerSample;
@@ -54,15 +62,12 @@ export function exportWavWithCueMarkers(audioBuffer, cuePoints) {
   const cueChunkSize = 8 + cueChunkDataSize + cuePadByte;
 
   // LIST / adtl chunk with labl sub-chunks
-  // Each label: "Slice N\0", padded to even length
   const labels = [];
   let adtlPayloadSize = 4; // 'adtl' identifier (4 bytes)
   for (let i = 0; i < numCuePoints; i++) {
     const labelStr = "";
     // Label bytes: string + null terminator
     const labelBytes = labelStr.length + 1;
-    // Pad label bytes to even length
-    const paddedLabelBytes = labelBytes + (labelBytes % 2);
     // labl sub-chunk data size: 4 (cue point ID) + label bytes (with null)
     const lablDataSize = 4 + labelBytes;
     // Pad the sub-chunk to even total (data size may be odd → pad byte)
@@ -73,7 +78,6 @@ export function exportWavWithCueMarkers(audioBuffer, cuePoints) {
       str: labelStr,
       lablDataSize,
       lablPadByte,
-      paddedLabelBytes,
     });
 
     adtlPayloadSize += lablChunkTotalSize;
@@ -84,10 +88,13 @@ export function exportWavWithCueMarkers(audioBuffer, cuePoints) {
   const listChunkSize = 8 + listChunkDataSize + listPadByte;
 
   // Total RIFF file size
-  // RIFF header: 'RIFF' (4) + fileSize (4) + 'WAVE' (4) = 12 bytes
-  // Then all chunks follow
   const riffPayloadSize =
-    4 + fmtChunkSize + dataChunkSize + cueChunkSize + listChunkSize;
+    4 +
+    fmtChunkSize +
+    factChunkSize +
+    dataChunkSize +
+    cueChunkSize +
+    listChunkSize;
   const totalFileSize = 8 + riffPayloadSize; // 'RIFF' + uint32 size + payload
 
   // ── Allocate buffer and create views ─────────────────────────────────
@@ -116,10 +123,10 @@ export function exportWavWithCueMarkers(audioBuffer, cuePoints) {
     offset += 2;
   }
 
-  /** Write a signed int16 in little-endian at the current offset and advance. */
-  function writeInt16(value) {
-    view.setInt16(offset, value, true);
-    offset += 2;
+  /** Write a 32-bit IEEE float in little-endian at the current offset and advance. */
+  function writeFloat32(value) {
+    view.setFloat32(offset, value, true);
+    offset += 4;
   }
 
   // ── RIFF header ──────────────────────────────────────────────────────
@@ -129,26 +136,33 @@ export function exportWavWithCueMarkers(audioBuffer, cuePoints) {
 
   // ── fmt  chunk ───────────────────────────────────────────────────────
   writeString("fmt ");
-  writeUint32(fmtChunkDataSize); // chunk data size = 16
-  writeUint16(1); // audio format: 1 = PCM
+  writeUint32(fmtChunkDataSize); // chunk data size = 18
+  writeUint16(audioFormat); // audio format: 3 = IEEE float
   writeUint16(numChannels); // number of channels
   writeUint32(sampleRate); // sample rate
   writeUint32(sampleRate * blockAlign); // byte rate
   writeUint16(blockAlign); // block align
-  writeUint16(bitsPerSample); // bits per sample
+  writeUint16(bitsPerSample); // bits per sample = 32
+  writeUint16(0); // cbSize: size of extension (0 for basic IEEE float)
+
+  // Pad fmt chunk to even byte boundary
+  if (fmtPadByte) {
+    view.setUint8(offset++, 0);
+  }
+
+  // ── fact chunk (required for non-PCM formats) ────────────────────────
+  writeString("fact");
+  writeUint32(factChunkDataSize); // chunk data size = 4
+  writeUint32(numFrames); // dwSampleLength: total number of sample frames
 
   // ── data chunk ───────────────────────────────────────────────────────
   writeString("data");
   writeUint32(dataChunkDataSize);
 
-  // Write interleaved 16-bit PCM samples
+  // Write interleaved 32-bit IEEE float samples
   for (let frame = 0; frame < numFrames; frame++) {
     for (let ch = 0; ch < numChannels; ch++) {
-      // Clamp the float sample to [-1, 1] then scale to 16-bit range
-      let sample = channels[ch][frame];
-      if (sample > 1.0) sample = 1.0;
-      else if (sample < -1.0) sample = -1.0;
-      writeInt16(Math.round(sample * 32767));
+      writeFloat32(channels[ch][frame]);
     }
   }
 
