@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Slicer — Browser Beat Slicer</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✂️</text></svg>">
+  <link rel="stylesheet" href="css/style.css">
+  <script type="module" src="js/app.js" defer></script>
+</head>
+<body>
+  <div id="app">
+    <header id="toolbar">
+      <div class="toolbar-left">
+        <h1 class="app-title">✂️ Slicer</h1>
+        <span class="app-subtitle">Beat Slicer</span>
+      </div>
+      <div class="toolbar-right">
+        <button id="btn-load" class="btn btn-secondary">📂 Load WAV</button>
+        <button id="btn-export" class="btn btn-primary" disabled>💾 Export WAV with Cue Markers</button>
+      </div>
+    </header>
+
+    <main id="workspace">
+      <div id="waveform-container">
+        <div id="drop-zone">
+          <div class="drop-zone-content">
+            <div class="drop-icon">🎵</div>
+            <div class="drop-text">Drop a WAV file here</div>
+            <div class="drop-subtext">or click "Load WAV" to browse</div>
+          </div>
+        </div>
+        <canvas id="waveform-canvas"></canvas>
+      </div>
+
+      <div id="controls">
+        <div id="transport">
+          <button id="btn-play" class="btn btn-transport" disabled title="Play/Stop">▶️</button>
+        </div>
+
+        <div id="sliders">
+          <div class="slider-group">
+            <label class="slider-label" for="threshold">Threshold</label>
+            <input type="range" id="threshold" min="0" max="100" value="30" step="1">
+            <span class="slider-value" id="threshold-value">0.30</span>
+          </div>
+
+          <div class="slider-group">
+            <label class="slider-label" for="sensitivity">Sensitivity</label>
+            <input type="range" id="sensitivity" min="0" max="100" value="50" step="1">
+            <span class="slider-value" id="sensitivity-value">0.50</span>
+          </div>
+
+          <div class="slider-group">
+            <label class="slider-label" for="min-distance">Min Distance</label>
+            <input type="range" id="min-distance" min="10" max="500" value="50" step="5">
+            <span class="slider-value" id="min-distance-value">50 ms</span>
+          </div>
+        </div>
+
+        <div id="info">
+          <div id="file-info">No file loaded</div>
+          <div id="slice-count">—</div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Hidden file input -->
+  <input type="file" id="file-input" accept=".wav,audio/wav" hidden>
+</body>
+</html>
