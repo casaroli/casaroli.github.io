@@ -468,11 +468,11 @@ function handleResize() {
 
 // ── About Modal ────────────────────────────────────────────────
 function openAbout() {
-  aboutOverlay.classList.remove("hidden");
+  aboutOverlay.classList.add("open");
 }
 
 function closeAbout() {
-  aboutOverlay.classList.add("hidden");
+  aboutOverlay.classList.remove("open");
 }
 
 // ── Boot ───────────────────────────────────────────────────────
