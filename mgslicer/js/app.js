@@ -114,6 +114,19 @@ function bindEvents() {
     togglePlayback();
   });
 
+  // Click on waveform to play a slice
+  canvas.addEventListener("click", (e) => {
+    if (!audioBuffer || !renderer) return;
+    // Resume AudioContext synchronously within the user gesture so Safari allows audio
+    if (audioContext && audioContext.state === "suspended") {
+      audioContext.resume();
+    }
+    const rect = canvas.getBoundingClientRect();
+    const canvasX = e.clientX - rect.left;
+    const clickedSample = renderer.getClickedSample(canvasX);
+    playSliceAtSample(clickedSample);
+  });
+
   // Sliders
   thresholdInput.addEventListener("input", onSliderChange);
   sensitivityInput.addEventListener("input", onSliderChange);
@@ -399,6 +412,83 @@ function stopPlayback() {
     renderer.setPlaybackPosition(-1);
     renderer.render();
   }
+}
+
+/**
+ * Play the slice that contains the given sample position.
+ * A "slice" is the region between two consecutive markers (or from
+ * the start / to the end of the file when there is no surrounding marker).
+ */
+function playSliceAtSample(sample) {
+  if (!audioBuffer || !audioContext) return;
+
+  // Stop any current playback first
+  stopPlayback();
+
+  // Determine slice boundaries from sorted markers
+  let sliceStart = 0;
+  let sliceEnd = audioBuffer.length;
+
+  for (let i = 0; i < markers.length; i++) {
+    if (markers[i] <= sample) {
+      sliceStart = markers[i];
+    } else {
+      sliceEnd = markers[i];
+      break;
+    }
+  }
+
+  const startSec = sliceStart / audioBuffer.sampleRate;
+  const endSec = sliceEnd / audioBuffer.sampleRate;
+  const duration = endSec - startSec;
+
+  if (duration <= 0) return;
+
+  sourceNode = audioContext.createBufferSource();
+  sourceNode.buffer = audioBuffer;
+  sourceNode.connect(audioContext.destination);
+
+  sourceNode.onended = () => {
+    if (isPlaying) {
+      stopPlayback();
+    }
+  };
+
+  playbackStartTime = audioContext.currentTime;
+  playbackOffset = startSec;
+  sourceNode.start(0, startSec, duration);
+  isPlaying = true;
+
+  btnPlay.textContent = "⏹️";
+  btnPlay.classList.add("active");
+
+  // Animate playhead within the slice
+  startSlicePlayheadAnimation(sliceStart, sliceEnd);
+}
+
+/**
+ * Animate the playhead during slice playback, stopping when the slice ends.
+ */
+function startSlicePlayheadAnimation(sliceStartSample, sliceEndSample) {
+  function tick() {
+    if (!isPlaying) return;
+
+    const elapsed =
+      audioContext.currentTime - playbackStartTime + playbackOffset;
+    const samplePos = Math.floor(elapsed * audioBuffer.sampleRate);
+
+    if (samplePos >= sliceEndSample) {
+      stopPlayback();
+      return;
+    }
+
+    renderer.setPlaybackPosition(samplePos);
+    renderer.render();
+
+    animFrameId = requestAnimationFrame(tick);
+  }
+
+  animFrameId = requestAnimationFrame(tick);
 }
 
 function startPlayheadAnimation() {
