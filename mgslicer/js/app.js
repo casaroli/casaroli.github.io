@@ -39,6 +39,10 @@ const sensitivityVal = document.getElementById("sensitivity-value");
 const minDistVal = document.getElementById("min-distance-value");
 const fileInfo = document.getElementById("file-info");
 const sliceCount = document.getElementById("slice-count");
+const btnAbout = document.getElementById("btn-about");
+const aboutOverlay = document.getElementById("about-overlay");
+const btnAboutClose = document.getElementById("btn-about-close");
+const btnAboutOk = document.getElementById("btn-about-ok");
 
 // ── Initialize ─────────────────────────────────────────────────────
 function ensureAudioContext() {
@@ -74,6 +78,14 @@ function init() {
 
 // ── Event Binding ──────────────────────────────────────────────────
 function bindEvents() {
+  // About modal
+  btnAbout.addEventListener("click", openAbout);
+  btnAboutClose.addEventListener("click", closeAbout);
+  btnAboutOk.addEventListener("click", closeAbout);
+  aboutOverlay.addEventListener("click", (e) => {
+    if (e.target === aboutOverlay) closeAbout();
+  });
+
   // File loading
   btnLoad.addEventListener("click", () => fileInput.click());
   fileInput.addEventListener("change", handleFileSelect);
@@ -122,6 +134,9 @@ function bindEvents() {
     if ((e.ctrlKey || e.metaKey) && e.code === "KeyE" && audioBuffer) {
       e.preventDefault();
       handleExport();
+    }
+    if (e.code === "Escape") {
+      closeAbout();
     }
   });
 }
@@ -449,6 +464,15 @@ function handleResize() {
     renderer.resize();
     renderer.render();
   }
+}
+
+// ── About Modal ────────────────────────────────────────────────
+function openAbout() {
+  aboutOverlay.classList.remove("hidden");
+}
+
+function closeAbout() {
+  aboutOverlay.classList.add("hidden");
 }
 
 // ── Boot ───────────────────────────────────────────────────────

@@ -1,72 +1,218 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MgSlicer — Morphagene Beat Slicer</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✂️</text></svg>">
-  <link rel="stylesheet" href="css/style.css">
-  <script type="module" src="js/app.js" defer></script>
-</head>
-<body>
-  <div id="app">
-    <header id="toolbar">
-      <div class="toolbar-left">
-        <h1 class="app-title">✂️ MgSlicer</h1>
-        <span class="app-subtitle">Morphagene Beat Slicer</span>
-      </div>
-      <div class="toolbar-right">
-        <button id="btn-load" class="btn btn-secondary">📂 Load WAV</button>
-        <button id="btn-export" class="btn btn-primary" disabled>💾 Export WAV with Cue Markers</button>
-      </div>
-    </header>
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>MgSlicer — Morphagene Beat Slicer</title>
+        <link
+            rel="icon"
+            href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✂️</text></svg>"
+        />
+        <link rel="stylesheet" href="css/style.css" />
+        <script type="module" src="js/app.js" defer></script>
+    </head>
+    <body>
+        <div id="app">
+            <header id="toolbar">
+                <div class="toolbar-left">
+                    <h1 class="app-title">✂️ MgSlicer</h1>
+                    <span class="app-subtitle">Morphagene Beat Slicer</span>
+                </div>
+                <div class="toolbar-right">
+                    <button
+                        id="btn-about"
+                        class="btn btn-ghost"
+                        title="About MgSlicer"
+                    >
+                        ℹ️ About
+                    </button>
+                    <button id="btn-load" class="btn btn-secondary">
+                        📂 Load WAV
+                    </button>
+                    <button id="btn-export" class="btn btn-primary" disabled>
+                        💾 Export WAV with Cue Markers
+                    </button>
+                </div>
+            </header>
 
-    <main id="workspace">
-      <div id="waveform-container">
-        <div id="drop-zone">
-          <div class="drop-zone-content">
-            <div class="drop-icon">🎵</div>
-            <div class="drop-text">Drop a WAV file here</div>
-            <div class="drop-subtext">or click "Load WAV" to browse</div>
-          </div>
+            <main id="workspace">
+                <div id="waveform-container">
+                    <div id="drop-zone">
+                        <div class="drop-zone-content">
+                            <div class="drop-icon">🎵</div>
+                            <div class="drop-text">Drop a WAV file here</div>
+                            <div class="drop-subtext">
+                                or click "Load WAV" to browse
+                            </div>
+                        </div>
+                    </div>
+                    <canvas id="waveform-canvas"></canvas>
+                </div>
+
+                <div id="controls">
+                    <div id="transport">
+                        <button
+                            id="btn-play"
+                            class="btn btn-transport"
+                            disabled
+                            title="Play/Stop"
+                        >
+                            ▶️
+                        </button>
+                    </div>
+
+                    <div id="sliders">
+                        <div class="slider-group">
+                            <label class="slider-label" for="threshold"
+                                >Threshold</label
+                            >
+                            <input
+                                type="range"
+                                id="threshold"
+                                min="0"
+                                max="100"
+                                value="30"
+                                step="1"
+                            />
+                            <span class="slider-value" id="threshold-value"
+                                >0.30</span
+                            >
+                        </div>
+
+                        <div class="slider-group">
+                            <label class="slider-label" for="sensitivity"
+                                >Sensitivity</label
+                            >
+                            <input
+                                type="range"
+                                id="sensitivity"
+                                min="0"
+                                max="100"
+                                value="50"
+                                step="1"
+                            />
+                            <span class="slider-value" id="sensitivity-value"
+                                >0.50</span
+                            >
+                        </div>
+
+                        <div class="slider-group">
+                            <label class="slider-label" for="min-distance"
+                                >Min Distance</label
+                            >
+                            <input
+                                type="range"
+                                id="min-distance"
+                                min="10"
+                                max="500"
+                                value="50"
+                                step="5"
+                            />
+                            <span class="slider-value" id="min-distance-value"
+                                >50 ms</span
+                            >
+                        </div>
+                    </div>
+
+                    <div id="info">
+                        <div id="file-info">No file loaded</div>
+                        <div id="slice-count">—</div>
+                    </div>
+                </div>
+            </main>
         </div>
-        <canvas id="waveform-canvas"></canvas>
-      </div>
 
-      <div id="controls">
-        <div id="transport">
-          <button id="btn-play" class="btn btn-transport" disabled title="Play/Stop">▶️</button>
+        <!-- About Modal -->
+        <div id="about-overlay" class="modal-overlay hidden">
+            <div
+                class="modal"
+                role="dialog"
+                aria-labelledby="about-title"
+                aria-modal="true"
+            >
+                <div class="modal-header">
+                    <h2 id="about-title">✂️ About MgSlicer</h2>
+                    <button
+                        id="btn-about-close"
+                        class="btn-modal-close"
+                        title="Close"
+                    >
+                        &times;
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p>
+                        <strong>MgSlicer</strong> is a browser-based beat slicer
+                        designed for the
+                        <a
+                            href="https://www.makenoisemusic.com/modules/morphagene"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            >Make Noise Morphagene</a
+                        >.
+                    </p>
+
+                    <h3>How it works</h3>
+                    <ol>
+                        <li>
+                            <strong>Load a WAV file</strong> — drag &amp; drop
+                            or use the Load button.
+                        </li>
+                        <li>
+                            <strong>Detect transients</strong> — the app
+                            analyzes the audio and marks beats and transients on
+                            the waveform. Adjust the <em>Threshold</em>,
+                            <em>Sensitivity</em>, and
+                            <em>Min Distance</em> controls to fine-tune
+                            detection.
+                        </li>
+                        <li>
+                            <strong>Export</strong> — save a 32-bit float WAV
+                            file with embedded cue markers (splice markers) that
+                            the Morphagene reads as splice points.
+                        </li>
+                    </ol>
+
+                    <p>
+                        Copy the exported file to a micro SD card and load it
+                        into your Morphagene — the splice markers will appear as
+                        splice boundaries, ready to be played, scanned, and
+                        manipulated.
+                    </p>
+
+                    <h3>⚠️ Important: Sample Rate</h3>
+                    <p>
+                        The Morphagene requires audio files at
+                        <strong>48 kHz</strong>. Make sure your computer's audio
+                        output sample rate is set to
+                        <strong>48000 Hz</strong> before using this application.
+                        The app will reject any WAV file that is not 48 kHz.
+                    </p>
+                    <p class="hint">
+                        On macOS, set this in <em>Audio MIDI Setup</em>. On
+                        Windows, check your sound device properties under
+                        <em>Advanced</em> settings.
+                    </p>
+
+                    <div class="modal-links">
+                        <a
+                            href="https://www.makenoisemusic.com/modules/morphagene"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            🔗 Make Noise Morphagene
+                        </a>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="btn-about-ok" class="btn btn-primary">
+                        Got it
+                    </button>
+                </div>
+            </div>
         </div>
 
-        <div id="sliders">
-          <div class="slider-group">
-            <label class="slider-label" for="threshold">Threshold</label>
-            <input type="range" id="threshold" min="0" max="100" value="30" step="1">
-            <span class="slider-value" id="threshold-value">0.30</span>
-          </div>
-
-          <div class="slider-group">
-            <label class="slider-label" for="sensitivity">Sensitivity</label>
-            <input type="range" id="sensitivity" min="0" max="100" value="50" step="1">
-            <span class="slider-value" id="sensitivity-value">0.50</span>
-          </div>
-
-          <div class="slider-group">
-            <label class="slider-label" for="min-distance">Min Distance</label>
-            <input type="range" id="min-distance" min="10" max="500" value="50" step="5">
-            <span class="slider-value" id="min-distance-value">50 ms</span>
-          </div>
-        </div>
-
-        <div id="info">
-          <div id="file-info">No file loaded</div>
-          <div id="slice-count">—</div>
-        </div>
-      </div>
-    </main>
-  </div>
-
-  <!-- Hidden file input -->
-  <input type="file" id="file-input" accept=".wav,audio/wav" hidden>
-</body>
+        <!-- Hidden file input -->
+        <input type="file" id="file-input" accept=".wav,audio/wav" hidden />
+    </body>
 </html>
