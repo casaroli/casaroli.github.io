@@ -171,7 +171,7 @@ async function loadFile(file) {
       audioBuffer = null;
       monoData = null;
       showFileInfo(
-        `⚠️ Unsupported sample rate: ${badRate} Hz — only 48000 Hz is supported`,
+        `⚠️ Unsupported sample rate: ${badRate} Hz — Set your system to 48000 Hz sample rate and try again`,
         true,
       );
       return;
