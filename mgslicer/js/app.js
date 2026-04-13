@@ -21,6 +21,7 @@ let playbackOffset = 0; // offset into the buffer (seconds)
 let animFrameId = null;
 let renderer = null; // WaveformRenderer instance
 let fileName = "";
+let dragCounter = 0; // tracks nested dragenter/dragleave for child elements
 
 // ── DOM references ─────────────────────────────────────────────────
 const app = document.getElementById("app");
@@ -40,9 +41,32 @@ const fileInfo = document.getElementById("file-info");
 const sliceCount = document.getElementById("slice-count");
 
 // ── Initialize ─────────────────────────────────────────────────────
+function ensureAudioContext() {
+  if (!audioContext) {
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (audioContext.state === "suspended") {
+    audioContext.resume();
+  }
+}
+
 function init() {
   renderer = new WaveformRenderer(canvas);
   renderer.render();
+
+  // Create AudioContext on the first user gesture (click, key, pointer).
+  // This ensures it's ready before a drag-and-drop, which some browsers
+  // don't consider a valid user-activation gesture.
+  const gestureEvents = ["click", "keydown", "pointerdown", "touchstart"];
+  function onFirstGesture() {
+    ensureAudioContext();
+    gestureEvents.forEach((evt) =>
+      document.removeEventListener(evt, onFirstGesture, true),
+    );
+  }
+  gestureEvents.forEach((evt) =>
+    document.addEventListener(evt, onFirstGesture, true),
+  );
 
   bindEvents();
   handleResize();
@@ -62,15 +86,12 @@ function bindEvents() {
     }
   });
 
-  // Drag & drop
-  dropZone.addEventListener("dragover", handleDragOver);
-  dropZone.addEventListener("dragleave", handleDragLeave);
-  dropZone.addEventListener("drop", handleDrop);
-  // Also allow dropping on the whole waveform container
-  const container = document.getElementById("waveform-container");
-  container.addEventListener("dragover", handleDragOver);
-  container.addEventListener("dragleave", handleDragLeave);
-  container.addEventListener("drop", handleDrop);
+  // Drag & drop — listen on the whole document so drops work everywhere,
+  // using a counter to handle dragenter/dragleave on child elements.
+  document.addEventListener("dragenter", handleDragEnter);
+  document.addEventListener("dragover", handleDragOver);
+  document.addEventListener("dragleave", handleDragLeave);
+  document.addEventListener("drop", handleDrop);
 
   // Transport
   btnPlay.addEventListener("click", togglePlayback);
@@ -111,23 +132,38 @@ function handleFileSelect(e) {
   if (file) loadFile(file);
 }
 
+function handleDragEnter(e) {
+  e.preventDefault();
+  dragCounter++;
+  // Show the drop zone on first enter
+  if (dragCounter === 1) {
+    dropZone.classList.remove("hidden");
+    dropZone.classList.add("drag-over");
+  }
+}
+
 function handleDragOver(e) {
   e.preventDefault();
-  e.stopPropagation();
-  dropZone.classList.add("drag-over");
-  dropZone.classList.remove("hidden");
+  // dataTransfer.dropEffect tells the browser to show a copy cursor
+  if (e.dataTransfer) {
+    e.dataTransfer.dropEffect = "copy";
+  }
 }
 
 function handleDragLeave(e) {
   e.preventDefault();
-  e.stopPropagation();
-  dropZone.classList.remove("drag-over");
-  if (audioBuffer) dropZone.classList.add("hidden");
+  dragCounter--;
+  // Only hide when we've left all nested elements (counter back to 0)
+  if (dragCounter <= 0) {
+    dragCounter = 0;
+    dropZone.classList.remove("drag-over");
+    if (audioBuffer) dropZone.classList.add("hidden");
+  }
 }
 
 function handleDrop(e) {
   e.preventDefault();
-  e.stopPropagation();
+  dragCounter = 0;
   dropZone.classList.remove("drag-over");
 
   const files = e.dataTransfer.files;
@@ -136,12 +172,16 @@ function handleDrop(e) {
     if (
       file.type === "audio/wav" ||
       file.type === "audio/x-wav" ||
+      file.type === "" ||
       file.name.toLowerCase().endsWith(".wav")
     ) {
       loadFile(file);
     } else {
       showFileInfo("⚠️ Please drop a WAV file", true);
+      if (audioBuffer) dropZone.classList.add("hidden");
     }
+  } else {
+    if (audioBuffer) dropZone.classList.add("hidden");
   }
 }
 
@@ -153,14 +193,8 @@ async function loadFile(file) {
   showFileInfo("Loading…");
 
   try {
-    // Create AudioContext on user gesture if needed
-    if (!audioContext) {
-      audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    // Resume if suspended due to autoplay policy
-    if (audioContext.state === "suspended") {
-      await audioContext.resume();
-    }
+    // Ensure AudioContext exists (fallback if no prior gesture created it)
+    ensureAudioContext();
 
     const arrayBuffer = await file.arrayBuffer();
     audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
@@ -419,7 +453,3 @@ function handleResize() {
 
 // ── Boot ───────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", init);
-
-// Prevent default browser drag behavior globally
-window.addEventListener("dragover", (e) => e.preventDefault());
-window.addEventListener("drop", (e) => e.preventDefault());
