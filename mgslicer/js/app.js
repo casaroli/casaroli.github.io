@@ -106,7 +106,13 @@ function bindEvents() {
   document.addEventListener("drop", handleDrop);
 
   // Transport
-  btnPlay.addEventListener("click", togglePlayback);
+  btnPlay.addEventListener("click", () => {
+    // Resume AudioContext synchronously within the user gesture so Safari allows audio
+    if (audioContext && audioContext.state === "suspended") {
+      audioContext.resume();
+    }
+    togglePlayback();
+  });
 
   // Sliders
   thresholdInput.addEventListener("input", onSliderChange);
@@ -123,6 +129,10 @@ function bindEvents() {
   document.addEventListener("keydown", (e) => {
     if (e.code === "Space" && audioBuffer) {
       e.preventDefault();
+      // Resume AudioContext synchronously within the user gesture so Safari allows audio
+      if (audioContext && audioContext.state === "suspended") {
+        audioContext.resume();
+      }
       togglePlayback();
     }
     // Ctrl/Cmd+O to load file
@@ -331,9 +341,14 @@ function togglePlayback() {
 async function startPlayback() {
   if (!audioBuffer || !audioContext) return;
 
-  // Resume context if suspended (browser autoplay policy)
-  if (audioContext.state === "suspended") {
-    await audioContext.resume();
+  // Wait for context to be fully running (resume was already kicked off
+  // synchronously by the caller inside the user-gesture callback).
+  if (audioContext.state !== "running") {
+    try {
+      await audioContext.resume();
+    } catch (_) {
+      /* ignore */
+    }
   }
 
   sourceNode = audioContext.createBufferSource();
